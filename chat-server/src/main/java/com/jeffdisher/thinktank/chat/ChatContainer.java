@@ -98,11 +98,11 @@ public class ChatContainer implements IChatContainer {
 
 	private class ChatListenerShim implements IListenerTopicShim<UUID, String> {
 		@Override
-		public void delete(UUID key, long intentionOffset) {
+		public void delete(UUID key, long intentionOffset, long consequenceOffset) {
 			throw Assert.unreachable("We don't delete keys");
 		}
 		@Override
-		public void put(UUID key, String value, long intentionOffset) {
+		public void put(UUID key, String value, long intentionOffset, long consequenceOffset) {
 			// Tell all the connections to listen.
 			for (RemoteEndpoint endpoint : _connections) {
 				try {
@@ -114,11 +114,11 @@ public class ChatContainer implements IChatContainer {
 			}
 		}
 		@Override
-		public void create(long intentionOffset) {
+		public void create(long intentionOffset, long consequenceOffset) {
 			// No special action on create.
 		}
 		@Override
-		public void destroy(long intentionOffset) {
+		public void destroy(long intentionOffset, long consequenceOffset) {
 			throw Assert.unreachable("We don't destroy the topic");
 		}
 	}

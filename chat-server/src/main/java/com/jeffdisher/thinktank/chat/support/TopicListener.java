@@ -50,7 +50,7 @@ public class TopicListener<K, V> implements Closeable {
 						// Decode the key.
 						K key = _keyCodec.deserialize(((Payload_KeyDelete)consequence.payload).key);
 						// Pass the command to the shim.
-						_shim.delete(key, consequence.intentionOffset);
+						_shim.delete(key, consequence.intentionOffset, consequence.consequenceOffset);
 					}
 						break;
 					case KEY_PUT: {
@@ -59,16 +59,16 @@ public class TopicListener<K, V> implements Closeable {
 						K key = _keyCodec.deserialize(payload.key);
 						V value = _valueCodec.deserialize(payload.value);
 						// Pass the command to the shim.
-						_shim.put(key, value, consequence.intentionOffset);
+						_shim.put(key, value, consequence.intentionOffset, consequence.consequenceOffset);
 					}
 						break;
 					case TOPIC_CREATE:
 						// Pass the command to the shim.
-						_shim.create(consequence.intentionOffset);
+						_shim.create(consequence.intentionOffset, consequence.consequenceOffset);
 						break;
 					case TOPIC_DESTROY:
 						// Pass the command to the shim.
-						_shim.destroy(consequence.intentionOffset);
+						_shim.destroy(consequence.intentionOffset, consequence.consequenceOffset);
 						break;
 					default:
 						throw Assert.unreachable("Unknown consequence type");
