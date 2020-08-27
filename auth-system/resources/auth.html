@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<!-- Required meta tags -->
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+		<!-- Bootstrap CSS -->
+		<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+		<script src="likeness.js"></script>
+
+		<title>Think Tank Auth Test</title>
+	</head>
+	<body>
+		<h1>Think Tank Auth Test</h1>
+		<div class="container" id="container">
+		</div>
+	</body>
+	<script>
+		// Define the UI templates for types.
+		createStringFieldTemplate("string");
+		createStructTemplate("tuple", 
+			new Map([["Current UUID", "string"], ["Login UUID", "string"]]),
+			new Map([["Login", function(map) {
+				fetch("login/" + map.getValue("Login UUID").getValue(), {method:"POST"})
+					.then(response => response.text())
+					.then(text => authData.getValue("Current UUID").setValue(text));
+			}], ["Logout", function(map) {
+				fetch("logout", {method:"POST"})
+					.then(response => response.text())
+					.then(text => authData.getValue("Current UUID").setValue(text));
+			}]])
+		);
+		
+		// Create empty binding struct and attach it.
+		let authData = Likeness.OBSERVABLE_GENERATOR_MAP["tuple"]();
+		let container = document.getElementById("container");
+		cloneTemplate("tuple", container, "Auth state", authData);
+		
+		// Kick-off request of current UUID.
+		fetch("getid")
+			.then(response => response.text())
+			.then(text => authData.getValue("Current UUID").setValue(text));
+	</script>
+</html>

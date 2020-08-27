@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<!-- Required meta tags -->
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+		<!-- Bootstrap CSS -->
+		<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+		<script src="likeness.js"></script>
+
+		<title>Think Tank Chat Room</title>
+	</head>
+	<body>
+		<h1>Think Tank Chat Room</h1>
+		<div class="container" id="container">
+		</div>
+	</body>
+	<script>
+		// Define the UI templates for types.
+		createStringFieldTemplate("string");
+		createArrayTemplate("chat", "string");
+		createStructTemplate("tuple", 
+			new Map([["Chat Room", "chat"], ["Post", "string"]]),
+			new Map([["Post", function(map) {
+				fetch("/chat/send", {method:"POST", body:map.getValue("Post").getValue()})
+					.then(response => response.text())
+					.then(text => map.getValue("Post").setValue(""));
+			}]])
+		);
+		
+		
+		// Create empty binding struct and attach it.
+		let topData = Likeness.OBSERVABLE_GENERATOR_MAP["tuple"]();
+		let container = document.getElementById("container");
+		cloneTemplate("tuple", container, "Chat room", topData);
+		
+		// Kick-off the WebSocket.
+		let listener = new WebSocket("ws://localhost:8080/chat/listen", ["text"]);
+		listener.onmessage = function (event) {
+			let post = Likeness.OBSERVABLE_GENERATOR_MAP["string"]();
+			post.setValue(event.data);
+			topData.getValue("Chat Room").addElement(post);
+		}
+	</script>
+</html>
