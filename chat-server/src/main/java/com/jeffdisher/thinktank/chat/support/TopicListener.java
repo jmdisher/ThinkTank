@@ -12,6 +12,14 @@ import com.jeffdisher.laminar.types.payload.Payload_KeyPut;
 import com.jeffdisher.laminar.utils.Assert;
 
 
+/**
+ * Listens to updates from Laminar on the requested topic.
+ * Internally decodes the key and value data in each consequence and sends their decoded meaning to the given
+ * IListenerTopicShim.
+ * 
+ * @param <K> The key type.
+ * @param <V> The value type.
+ */
 public class TopicListener<K, V> implements Closeable {
 	private final TopicName _topic;
 	private final IListenerTopicShim<K, V> _shim;

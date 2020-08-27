@@ -16,7 +16,9 @@ import com.jeffdisher.breakwater.StringMultiMap;
 
 
 /**
- * Manages responding to and creating the handlers for the REST server.
+ * Entry-points related to chat system:
+ * -POST /chat/send
+ * -WebSocket listen for "text" /chat/listen
  */
 public class ChatEntryPoints {
 	/**

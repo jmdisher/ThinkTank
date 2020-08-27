@@ -1,11 +1,12 @@
-package com.jeffdisher.thinktank.chat;
+package com.jeffdisher.thinktank.chat.support;
 
 import java.nio.ByteBuffer;
 import java.util.UUID;
 
-import com.jeffdisher.thinktank.chat.support.ICodec;
 
-
+/**
+ * Serializes/deserializes UUIDs for Laminar.
+ */
 public class UUIDCodec implements ICodec<UUID> {
 	@Override
 	public UUID deserialize(byte[] bytes) {

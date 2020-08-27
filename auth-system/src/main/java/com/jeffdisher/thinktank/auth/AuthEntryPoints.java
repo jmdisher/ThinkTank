@@ -10,6 +10,12 @@ import com.jeffdisher.breakwater.RestServer;
 import com.jeffdisher.breakwater.StringMultiMap;
 
 
+/**
+ * Entry-points related to authentication:
+ * -POST /login/&lt;UUID&gt;
+ * -GET /getid
+ * -POST /logout
+ */
 public class AuthEntryPoints {
 	public static void registerEntryPoints(RestServer server) {
 		// Install handlers for modifying login state.

@@ -14,8 +14,12 @@ import com.jeffdisher.laminar.utils.Assert;
 import com.jeffdisher.thinktank.chat.support.IListenerTopicShim;
 import com.jeffdisher.thinktank.chat.support.StringCodec;
 import com.jeffdisher.thinktank.chat.support.TopicListener;
+import com.jeffdisher.thinktank.chat.support.UUIDCodec;
 
 
+/**
+ * The real implementation of IChatContainer which is back-ended on a Laminar cluster via the topic name "chat".
+ */
 public class ChatContainer implements IChatContainer {
 	private static final TopicName TOPIC_NAME = TopicName.fromString("chat");
 

@@ -11,8 +11,15 @@ import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 
 import com.jeffdisher.laminar.utils.Assert;
 import com.jeffdisher.thinktank.chat.support.StringCodec;
+import com.jeffdisher.thinktank.chat.support.UUIDCodec;
 
 
+/**
+ * A local-only implementation of the IChatContainer.  This is used for testing or other stand-alone environments where
+ * there is no Laminar cluster.
+ * A background thread sends the messages out so the system still provides the same asynchronous behaviour as a real
+ * back-end.
+ */
 public class ChatLocal implements IChatContainer {
 	private static final UUIDCodec KEY_CODEC = new UUIDCodec();
 	private static final StringCodec VALUE_CODEC = new StringCodec();

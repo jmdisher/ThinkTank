@@ -3,6 +3,9 @@ package com.jeffdisher.thinktank.chat.support;
 import java.nio.charset.StandardCharsets;
 
 
+/**
+ * Serializes/deserializes Strings for Laminar.
+ */
 public class StringCodec implements ICodec<String> {
 	@Override
 	public String deserialize(byte[] bytes) {
