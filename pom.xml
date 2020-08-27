@@ -27,6 +27,7 @@
 	</repositories>
 
 	<modules>
+		<module>utilities</module>
 		<module>auth-system</module>
 		<module>chat-server</module>
 		<module>exit-system</module>

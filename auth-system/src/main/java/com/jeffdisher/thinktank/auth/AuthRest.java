@@ -1,16 +1,14 @@
 package com.jeffdisher.thinktank.auth;
 
 import java.io.IOException;
-import java.nio.file.LinkOption;
-import java.nio.file.Paths;
 import java.util.concurrent.CountDownLatch;
 
-import org.eclipse.jetty.util.resource.PathResource;
 import org.eclipse.jetty.util.resource.ResourceCollection;
 
 import com.jeffdisher.breakwater.RestServer;
 import com.jeffdisher.breakwater.utilities.Assert;
 import com.jeffdisher.thinktank.exit.ExitEntryPoints;
+import com.jeffdisher.thinktank.utilities.ResourceHelpers;
 
 
 /**
@@ -31,9 +29,16 @@ public class AuthRest {
 
 	private static void _main(CountDownLatch bindLatch, String[] args) {
 		// Create the server and start it.
-		PathResource globalResource = _createPathResource(System.getProperty("user.dir") + "/../resources/");
-		PathResource authResource = _createPathResource(System.getProperty("user.dir") + "/resources/");
-		ResourceCollection combinedCollection = new ResourceCollection(authResource, globalResource);
+		ResourceCollection combinedCollection;
+		try {
+			combinedCollection = ResourceHelpers.buildResourceCollection(
+					System.getProperty("user.dir") + "/../resources/",
+					System.getProperty("user.dir") + "/resources/"
+			);
+		} catch (IOException e1) {
+			// We treat a failure to resolve this path as a fatal, and highly expected, error.
+			throw Assert.unexpected(e1);
+		}
 		RestServer server = new RestServer(REST_PORT, combinedCollection);
 		CountDownLatch stopLatch = new CountDownLatch(1);
 		// -install the exit entry-point.
@@ -52,17 +57,5 @@ public class AuthRest {
 			throw Assert.unexpected(e);
 		}
 		server.stop();
-	}
-
-	private static PathResource _createPathResource(String path) throws AssertionError {
-		// NOTE:  We MUST create this as a "real path" or Jetty decides it is an alias and doesn't follow it when loading resources.
-		PathResource pathResource;
-		try {
-			pathResource = new PathResource(Paths.get(path).toRealPath(new LinkOption[0]));
-		} catch (IOException e1) {
-			// We treat a failure to resolve this path as a fatal, and highly expected, error.
-			throw Assert.unexpected(e1);
-		}
-		return pathResource;
 	}
 }

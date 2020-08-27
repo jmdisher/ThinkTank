@@ -27,6 +27,11 @@
 			<artifactId>clientlib</artifactId>
 			<version>0.0-research1</version>
 		</dependency>
+		<dependency>
+			<groupId>${project.groupId}</groupId>
+			<artifactId>utilities</artifactId>
+			<version>${project.version}</version>
+		</dependency>
 		<!--  For now, we assume that there is a shared session memory so we rely directly on auth.  In the future, this will be replaced by a signed token. -->
 		<dependency>
 			<groupId>${project.groupId}</groupId>
