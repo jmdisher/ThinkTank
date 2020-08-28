@@ -28,6 +28,7 @@
 
 	<modules>
 		<module>utilities</module>
+		<module>crypto</module>
 		<module>auth-system</module>
 		<module>chat-server</module>
 		<module>exit-system</module>
