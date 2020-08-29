@@ -1,6 +1,7 @@
 package com.jeffdisher.thinktank;
 
 import java.io.IOException;
+import java.security.KeyPair;
 import java.util.concurrent.CountDownLatch;
 
 import org.eclipse.jetty.util.resource.ResourceCollection;
@@ -11,6 +12,7 @@ import com.jeffdisher.thinktank.auth.AuthEntryPoints;
 import com.jeffdisher.thinktank.chat.ChatEntryPoints;
 import com.jeffdisher.thinktank.chat.ChatRest;
 import com.jeffdisher.thinktank.chat.IChatContainer;
+import com.jeffdisher.thinktank.crypto.CryptoHelpers;
 import com.jeffdisher.thinktank.exit.ExitEntryPoints;
 import com.jeffdisher.thinktank.utilities.MainHelpers;
 import com.jeffdisher.thinktank.utilities.ResourceHelpers;
@@ -43,6 +45,9 @@ public class ThinkTankRest {
 			MainHelpers.failStart("Missing port");
 		}
 		
+		// For now, keys are just generated internally.
+		KeyPair keyPair = CryptoHelpers.generateRandomKeyPair();
+		
 		// Start the chat container (owns the Laminar connection).
 		IChatContainer chatContainer = ChatRest.buildChatContainer(hostname, portString, localOnly);
 		
@@ -62,8 +67,8 @@ public class ThinkTankRest {
 		CountDownLatch stopLatch = new CountDownLatch(1);
 		// Install all the entry-points.
 		ExitEntryPoints.registerEntryPoints(stopLatch, server);
-		AuthEntryPoints.registerEntryPoints(server);
-		ChatEntryPoints.registerEntryPoints(server, chatContainer);
+		AuthEntryPoints.registerEntryPoints(server, keyPair.getPrivate());
+		ChatEntryPoints.registerEntryPoints(server, chatContainer, keyPair.getPublic());
 		server.start();
 		
 		// Count-down the latch in case we are part of a testing environment.

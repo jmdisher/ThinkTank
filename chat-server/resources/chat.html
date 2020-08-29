@@ -24,8 +24,18 @@
 			new Map([["Chat Room", "chat"], ["Post", "string"]]),
 			new Map([["Post", function(map) {
 				fetch("/chat/send", {method:"POST", body:map.getValue("Post").getValue()})
+					.then(response => {
+						if (403 == response.status) {
+							map.getValue("Post").setValue("missing auth");
+						} else {
+							map.getValue("Post").setValue("");
+						}
+					})
+				;
+			}], ["Auth", function(map) {
+				fetch("/getid")
 					.then(response => response.text())
-					.then(text => map.getValue("Post").setValue(""));
+				;
 			}]])
 		);
 		

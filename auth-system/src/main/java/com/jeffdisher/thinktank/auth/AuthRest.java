@@ -1,12 +1,14 @@
 package com.jeffdisher.thinktank.auth;
 
 import java.io.IOException;
+import java.security.PrivateKey;
 import java.util.concurrent.CountDownLatch;
 
 import org.eclipse.jetty.util.resource.ResourceCollection;
 
 import com.jeffdisher.breakwater.RestServer;
 import com.jeffdisher.breakwater.utilities.Assert;
+import com.jeffdisher.thinktank.crypto.CryptoHelpers;
 import com.jeffdisher.thinktank.exit.ExitEntryPoints;
 import com.jeffdisher.thinktank.utilities.ResourceHelpers;
 
@@ -28,6 +30,8 @@ public class AuthRest {
 	}
 
 	private static void _main(CountDownLatch bindLatch, String[] args) {
+		// For now, keys are just generated internally.
+		PrivateKey key = CryptoHelpers.generateRandomKeyPair().getPrivate();
 		// Create the server and start it.
 		ResourceCollection combinedCollection;
 		try {
@@ -43,7 +47,7 @@ public class AuthRest {
 		CountDownLatch stopLatch = new CountDownLatch(1);
 		// -install the exit entry-point.
 		ExitEntryPoints.registerEntryPoints(stopLatch, server);
-		AuthEntryPoints.registerEntryPoints(server);
+		AuthEntryPoints.registerEntryPoints(server, key);
 		server.start();
 		
 		// Count-down the latch in case we are part of a testing environment.

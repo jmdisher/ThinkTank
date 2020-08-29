@@ -1,13 +1,18 @@
 package com.jeffdisher.thinktank.auth;
 
+import java.security.PrivateKey;
 import java.util.UUID;
 
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+import org.eclipse.jetty.http.HttpCookie;
+
 import com.jeffdisher.breakwater.RestServer;
 import com.jeffdisher.breakwater.StringMultiMap;
+import com.jeffdisher.thinktank.crypto.BinaryToken;
 
 
 /**
@@ -17,7 +22,7 @@ import com.jeffdisher.breakwater.StringMultiMap;
  * -POST /logout
  */
 public class AuthEntryPoints {
-	public static void registerEntryPoints(RestServer server) {
+	public static void registerEntryPoints(RestServer server, PrivateKey key) {
 		// Install handlers for modifying login state.
 		server.addPostHandler("/login", 1, (HttpServletRequest request, HttpServletResponse response, String[] pathVariables, StringMultiMap<String> formVariables, StringMultiMap<byte[]> multiPart, byte[] rawPost) -> {
 			UUID uuid;
@@ -40,9 +45,17 @@ public class AuthEntryPoints {
 		server.addGetHandler("/getid", 0, (HttpServletRequest request, HttpServletResponse response, String[] variables) -> {
 			HttpSession session = request.getSession(false);
 			if (null != session) {
+				UUID uuid = (UUID)session.getAttribute("uuid");
+				long expiryMillis = System.currentTimeMillis() + 10_000L;
+				String binaryToken = BinaryToken.createToken(key, uuid, expiryMillis);
+				Cookie cookie = new Cookie("BT", binaryToken);
+				cookie.setDomain("localhost");
+				cookie.setComment(HttpCookie.SAME_SITE_STRICT_COMMENT);
+				response.addCookie(cookie);
+				
 				response.setContentType("text/plain;charset=utf-8");
 				response.setStatus(HttpServletResponse.SC_OK);
-				response.getWriter().println(session.getAttribute("uuid").toString());
+				response.getWriter().println(uuid.toString());
 			} else {
 				response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
 				response.getWriter().println("Not logged in");

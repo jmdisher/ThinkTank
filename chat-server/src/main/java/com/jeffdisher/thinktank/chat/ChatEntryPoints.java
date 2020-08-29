@@ -1,11 +1,12 @@
 package com.jeffdisher.thinktank.chat;
 
 import java.nio.charset.StandardCharsets;
+import java.security.PublicKey;
 import java.util.UUID;
 
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
@@ -13,6 +14,7 @@ import org.eclipse.jetty.websocket.api.WebSocketListener;
 
 import com.jeffdisher.breakwater.RestServer;
 import com.jeffdisher.breakwater.StringMultiMap;
+import com.jeffdisher.thinktank.crypto.BinaryToken;
 
 
 /**
@@ -21,28 +23,15 @@ import com.jeffdisher.breakwater.StringMultiMap;
  * -WebSocket listen for "text" /chat/listen
  */
 public class ChatEntryPoints {
-	/**
-	 * Set a UUID to act as when testing while not logged in.
-	 */
-	public static UUID TESTING_UUID = null;
-
-	public static void registerEntryPoints(RestServer server, IChatContainer chatContainer) {
+	public static void registerEntryPoints(RestServer server, IChatContainer chatContainer, PublicKey key) {
 		server.addPostHandler("/chat/send", 0, (HttpServletRequest request, HttpServletResponse response, String[] pathVariables, StringMultiMap<String> formVariables, StringMultiMap<byte[]> multiPart, byte[] rawPost) -> {
-			UUID uuid = null;
-			if (null == TESTING_UUID) {
-				HttpSession session = request.getSession(false);
-				uuid = (null != session)
-						? (UUID) session.getAttribute("uuid")
-						: null;
-			} else {
-				uuid = TESTING_UUID;
-			}
+			UUID uuid = _getUuidFromCookie(request, key);
 			if (null != uuid) {
 				String message = new String(rawPost, StandardCharsets.UTF_8);
 				chatContainer.post(uuid, message);
 				response.setStatus(HttpServletResponse.SC_OK);
 			} else {
-				response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+				response.setStatus(HttpServletResponse.SC_FORBIDDEN);
 				response.getWriter().println("Required UUID");
 			}
 		});
@@ -73,5 +62,19 @@ public class ChatEntryPoints {
 			public void onWebSocketBinary(byte[] payload, int offset, int len) {
 			}
 		});
+	}
+
+
+	private static UUID _getUuidFromCookie(HttpServletRequest request, PublicKey key) {
+		UUID value = null;
+		Cookie[] cookies = request.getCookies();
+		for (Cookie cookie : cookies) {
+			if ("BT".equals(cookie.getName())) {
+				String encoded = cookie.getValue();
+				value = BinaryToken.validateToken(key, System.currentTimeMillis(), encoded);
+				break;
+			}
+		}
+		return value;
 	}
 }
