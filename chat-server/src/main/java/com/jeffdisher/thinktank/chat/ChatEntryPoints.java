@@ -3,6 +3,7 @@ package com.jeffdisher.thinktank.chat;
 import java.nio.charset.StandardCharsets;
 import java.security.PublicKey;
 import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
@@ -39,8 +40,12 @@ public class ChatEntryPoints {
 			private RemoteEndpoint _session;
 			@Override
 			public void onWebSocketError(Throwable cause) {
-				// This is usually just a timeout but we will print stack trace while still testing.
-				cause.printStackTrace();
+				// This is usually just a timeout closing the socket which is harmless but we want to log other errors.
+				if (cause.getCause() instanceof TimeoutException) {
+					// Do nothing.
+				} else {
+					cause.printStackTrace();
+				}
 			}
 			
 			@Override
