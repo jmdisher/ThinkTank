@@ -35,8 +35,8 @@ public class ChatRest {
 	}
 
 	// Public since this is used by external utilities when being embedded.
-	public static IChatContainer buildChatContainer(String hostname, String portString, boolean localOnly) {
-		return _buildChatContainer(hostname, portString, localOnly);
+	public static IChatWriter buildChatWriter(ChatStore chatStore, String hostname, String portString, boolean localOnly) {
+		return _buildChatWriter(chatStore, hostname, portString, localOnly);
 	}
 
 	private static void _main(CountDownLatch bindLatch, String[] args) {
@@ -60,7 +60,8 @@ public class ChatRest {
 		}
 		
 		// Start the chat container (owns the Laminar connection).
-		IChatContainer chatContainer = _buildChatContainer(hostname, portString, localOnly);
+		ChatStore chatStore = new ChatStore();
+		IChatWriter chatWriter = _buildChatWriter(chatStore, hostname, portString, localOnly);
 		
 		// Create the server and start it.
 		ResourceCollection combinedCollection;
@@ -77,7 +78,7 @@ public class ChatRest {
 		CountDownLatch stopLatch = new CountDownLatch(1);
 		// -install the exit entry-point.
 		ExitEntryPoints.registerEntryPoints(stopLatch, server);
-		ChatEntryPoints.registerEntryPoints(server, chatContainer, publicKey);
+		ChatEntryPoints.registerEntryPoints(server, chatStore, chatWriter, publicKey);
 		server.start();
 		
 		// Count-down the latch in case we are part of a testing environment.
@@ -92,17 +93,17 @@ public class ChatRest {
 		}
 		server.stop();
 		try {
-			chatContainer.close();
+			chatWriter.close();
 		} catch (IOException e) {
 			// If this happens on shutdown, just print it.
 			e.printStackTrace();
 		}
 	}
 
-	private static IChatContainer _buildChatContainer(String hostname, String portString, boolean localOnly) {
-		IChatContainer chatContainer;
+	private static IChatWriter _buildChatWriter(ChatStore chatStore, String hostname, String portString, boolean localOnly) {
+		IChatWriter chatContainer;
 		if (localOnly) {
-			chatContainer = new ChatLocal();
+			chatContainer = new ChatLocal(chatStore);
 		} else {
 			int port;
 			try {
@@ -118,7 +119,7 @@ public class ChatRest {
 			}
 			
 			try {
-				chatContainer = new ChatContainer(laminarServer);
+				chatContainer = new ChatLaminar(chatStore, laminarServer);
 			} catch (IOException e) {
 				throw MainHelpers.failStart("Error connecting to Laimar: " + e.getLocalizedMessage());
 			}

@@ -25,7 +25,7 @@ public class ChatEntryPoints {
 	 */
 	private static final int STATUS_AUTH = 3000;
 
-	public static void registerEntryPoints(RestServer server, IChatContainer chatContainer, PublicKey key) {
+	public static void registerEntryPoints(RestServer server, ChatStore chatStore, IChatWriter chatWriter, PublicKey key) {
 		server.addWebSocketFactory("/chat", 0, true, false, (String[] variables) -> new WebSocketListener() {
 			private UUID _user;
 			private RemoteEndpoint _session;
@@ -45,7 +45,7 @@ public class ChatEntryPoints {
 				if (null != uuid) {
 					_user = uuid;
 					_session = session.getRemote();
-					chatContainer.addConnection(_session);
+					chatStore.addConnection(_session);
 				} else {
 					session.close(STATUS_AUTH, "Missing BinaryToken");
 				}
@@ -54,14 +54,14 @@ public class ChatEntryPoints {
 			@Override
 			public void onWebSocketClose(int statusCode, String reason) {
 				if (null != _session) {
-					chatContainer.removeConnection(_session);
+					chatStore.removeConnection(_session);
 				}
 			}
 			
 			@Override
 			public void onWebSocketText(String message) {
 				if (null != _user) {
-					chatContainer.post(_user, message);
+					chatWriter.post(_user, message);
 				}
 			}
 			

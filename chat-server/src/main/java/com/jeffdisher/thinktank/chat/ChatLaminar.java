@@ -2,11 +2,7 @@ package com.jeffdisher.thinktank.chat;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
-
-import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 
 import com.jeffdisher.laminar.client.ClientConnection;
 import com.jeffdisher.laminar.types.TopicName;
@@ -18,18 +14,19 @@ import com.jeffdisher.thinktank.chat.support.UUIDCodec;
 
 
 /**
- * The real implementation of IChatContainer which is back-ended on a Laminar cluster via the topic name "chat".
+ * The real implementation of IChatWriter which is back-ended on a Laminar cluster via the topic name "chat".
  */
-public class ChatContainer implements IChatContainer {
+public class ChatLaminar implements IChatWriter {
 	private static final TopicName TOPIC_NAME = TopicName.fromString("chat");
 
+	private final ChatStore _chatStore;
 	private final UUIDCodec _keyCodec;
 	private final StringCodec _valueCodec;
 	private final ClientConnection _writer;
 	private final TopicListener<UUID, String> _listener;
-	private final Set<RemoteEndpoint> _connections;
 
-	public ChatContainer(InetSocketAddress laminarServer) throws IOException {
+	public ChatLaminar(ChatStore chatStore, InetSocketAddress laminarServer) throws IOException {
+		_chatStore = chatStore;
 		_keyCodec = new UUIDCodec();
 		_valueCodec = new StringCodec();
 		
@@ -62,21 +59,6 @@ public class ChatContainer implements IChatContainer {
 			// We don't use interruption.
 			throw Assert.unexpected(e);
 		}
-		_connections = new HashSet<>();
-	}
-
-	@Override
-	public synchronized void addConnection(RemoteEndpoint session) {
-		Assert.assertTrue(null != session);
-		boolean didAdd = _connections.add(session);
-		Assert.assertTrue(didAdd);
-	}
-
-	@Override
-	public synchronized void removeConnection(RemoteEndpoint session) {
-		Assert.assertTrue(null != session);
-		boolean didRemove = _connections.remove(session);
-		Assert.assertTrue(didRemove);
 	}
 
 	@Override
@@ -105,15 +87,8 @@ public class ChatContainer implements IChatContainer {
 		}
 		@Override
 		public void put(UUID key, String value, long intentionOffset, long consequenceOffset) {
-			// Tell all the connections to listen.
-			for (RemoteEndpoint endpoint : _connections) {
-				try {
-					endpoint.sendString(key + ": " + value);
-				} catch (IOException e) {
-					// This is fatal since we don't have handling for it.
-					throw Assert.unimplemented(e.getLocalizedMessage());
-				}
-			}
+			String message = key + ": " + value;
+			_chatStore.newMessageArrived(message);
 		}
 		@Override
 		public void create(long intentionOffset, long consequenceOffset) {

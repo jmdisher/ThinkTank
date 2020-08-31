@@ -1,13 +1,9 @@
 package com.jeffdisher.thinktank.chat;
 
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Queue;
-import java.util.Set;
 import java.util.UUID;
-
-import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 
 import com.jeffdisher.laminar.utils.Assert;
 import com.jeffdisher.thinktank.chat.support.StringCodec;
@@ -15,36 +11,27 @@ import com.jeffdisher.thinktank.chat.support.UUIDCodec;
 
 
 /**
- * A local-only implementation of the IChatContainer.  This is used for testing or other stand-alone environments where
+ * A local-only implementation of the IChatWriter.  This is used for testing or other stand-alone environments where
  * there is no Laminar cluster.
  * A background thread sends the messages out so the system still provides the same asynchronous behaviour as a real
  * back-end.
  */
-public class ChatLocal implements IChatContainer {
+public class ChatLocal implements IChatWriter {
 	private static final UUIDCodec KEY_CODEC = new UUIDCodec();
 	private static final StringCodec VALUE_CODEC = new StringCodec();
 
-	private final Set<RemoteEndpoint> _connections;
+	private final ChatStore _chatStore;
 	private final Queue<String> _messages;
 	private final Thread _background;
 	private boolean _keepRunning;
 
-	public ChatLocal() {
-		_connections = new HashSet<>();
+	public ChatLocal(ChatStore chatStore) {
+		_chatStore = chatStore;
 		_messages = new LinkedList<>();
 		_background = new Thread(() -> {
 			String message = _waitNextMessage();
 			while (null != message) {
-				synchronized(this) {
-					for (RemoteEndpoint endpoint : _connections) {
-						try {
-							endpoint.sendString(message);
-						} catch (IOException e) {
-							// This is fatal since we don't have handling for it.
-							throw Assert.unimplemented(e.getLocalizedMessage());
-						}
-					}
-				}
+				_chatStore.newMessageArrived(message);
 				message = _waitNextMessage();
 			}
 		});
@@ -64,20 +51,6 @@ public class ChatLocal implements IChatContainer {
 			// We don't use interruption.
 			throw Assert.unexpected(e);
 		}
-	}
-
-	@Override
-	public synchronized void addConnection(RemoteEndpoint session) {
-		Assert.assertTrue(null != session);
-		boolean didAdd = _connections.add(session);
-		Assert.assertTrue(didAdd);
-	}
-
-	@Override
-	public synchronized void removeConnection(RemoteEndpoint session) {
-		Assert.assertTrue(null != session);
-		boolean didRemove = _connections.remove(session);
-		Assert.assertTrue(didRemove);
 	}
 
 	@Override

@@ -11,7 +11,8 @@ import com.jeffdisher.laminar.utils.Assert;
 import com.jeffdisher.thinktank.auth.AuthEntryPoints;
 import com.jeffdisher.thinktank.chat.ChatEntryPoints;
 import com.jeffdisher.thinktank.chat.ChatRest;
-import com.jeffdisher.thinktank.chat.IChatContainer;
+import com.jeffdisher.thinktank.chat.ChatStore;
+import com.jeffdisher.thinktank.chat.IChatWriter;
 import com.jeffdisher.thinktank.crypto.CryptoHelpers;
 import com.jeffdisher.thinktank.exit.ExitEntryPoints;
 import com.jeffdisher.thinktank.utilities.MainHelpers;
@@ -49,7 +50,8 @@ public class ThinkTankRest {
 		KeyPair keyPair = CryptoHelpers.generateRandomKeyPair();
 		
 		// Start the chat container (owns the Laminar connection).
-		IChatContainer chatContainer = ChatRest.buildChatContainer(hostname, portString, localOnly);
+		ChatStore chatStore = new ChatStore();
+		IChatWriter chatWriter = ChatRest.buildChatWriter(chatStore, hostname, portString, localOnly);
 		
 		// Create the server and start it.
 		ResourceCollection combinedCollection;
@@ -68,7 +70,7 @@ public class ThinkTankRest {
 		// Install all the entry-points.
 		ExitEntryPoints.registerEntryPoints(stopLatch, server);
 		AuthEntryPoints.registerEntryPoints(server, keyPair.getPrivate());
-		ChatEntryPoints.registerEntryPoints(server, chatContainer, keyPair.getPublic());
+		ChatEntryPoints.registerEntryPoints(server, chatStore, chatWriter, keyPair.getPublic());
 		server.start();
 		
 		// Count-down the latch in case we are part of a testing environment.
@@ -83,7 +85,7 @@ public class ThinkTankRest {
 		}
 		server.stop();
 		try {
-			chatContainer.close();
+			chatWriter.close();
 		} catch (IOException e) {
 			// If this happens on shutdown, just print it.
 			e.printStackTrace();
