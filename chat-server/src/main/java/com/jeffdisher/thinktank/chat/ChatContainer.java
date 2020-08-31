@@ -68,13 +68,15 @@ public class ChatContainer implements IChatContainer {
 	@Override
 	public synchronized void addConnection(RemoteEndpoint session) {
 		Assert.assertTrue(null != session);
-		_connections.add(session);
+		boolean didAdd = _connections.add(session);
+		Assert.assertTrue(didAdd);
 	}
 
 	@Override
 	public synchronized void removeConnection(RemoteEndpoint session) {
 		Assert.assertTrue(null != session);
-		_connections.remove(session);
+		boolean didRemove = _connections.remove(session);
+		Assert.assertTrue(didRemove);
 	}
 
 	@Override
