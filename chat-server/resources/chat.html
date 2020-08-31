@@ -23,15 +23,8 @@
 		createStructTemplate("tuple", 
 			new Map([["Chat Room", "chat"], ["Post", "string"]]),
 			new Map([["Post", function(map) {
-				fetch("/chat/send", {method:"POST", body:map.getValue("Post").getValue()})
-					.then(response => {
-						if (403 == response.status) {
-							map.getValue("Post").setValue("missing auth");
-						} else {
-							map.getValue("Post").setValue("");
-						}
-					})
-				;
+				enqueueOrSend(map.getValue("Post").getValue());
+				map.getValue("Post").setValue("");
 			}], ["Auth", function(map) {
 				fetch("/getid")
 					.then(response => response.text())
@@ -49,8 +42,9 @@
 		startWebSocket();
 		
 		var WEB_SOCKET = null;
+		var WAITING_TO_SEND = [];
 		function startWebSocket() {
-			let listener = new WebSocket("ws://localhost:8080/chat/listen", ["text"]);
+			let listener = new WebSocket("ws://localhost:8080/chat", ["text"]);
 			listener.onmessage = function(event) {
 				let post = Likeness.OBSERVABLE_GENERATOR_MAP["string"]();
 				post.setValue(event.data);
@@ -58,13 +52,30 @@
 			}
 			listener.onopen = function(event) {
 				WEB_SOCKET = listener;
+				WAITING_TO_SEND.forEach(function(elt, index, array) {
+					sendMessage(elt);
+				});
+				WAITING_TO_SEND = null;
 			}
 			listener.onclose = function(event) {
 				// Clear the socket and re-open it after a cool-down period (5 seconds).
 				let cooldownMillis = 5000;
 				WEB_SOCKET = null;
+				WAITING_TO_SEND = [];
 				window.setTimeout(startWebSocket, cooldownMillis);
 			}
+		}
+		
+		function enqueueOrSend(message) {
+			if (null != WEB_SOCKET) {
+				sendMessage(message);
+			} else {
+				WAITING_TO_SEND.push(message);
+			}
+		}
+		
+		function sendMessage(message) {
+			WEB_SOCKET.send(message);
 		}
 	</script>
 </html>

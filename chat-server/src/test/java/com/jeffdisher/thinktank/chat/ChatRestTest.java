@@ -6,22 +6,19 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.PublicKey;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 
-import org.eclipse.jetty.client.HttpClient;
-import org.eclipse.jetty.client.api.ContentResponse;
-import org.eclipse.jetty.client.api.Request;
-import org.eclipse.jetty.client.util.StringContentProvider;
-import org.eclipse.jetty.http.HttpMethod;
+import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketListener;
+import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.junit.Assert;
 import org.junit.Test;
@@ -46,7 +43,10 @@ public class ChatRestTest {
 		ChatWrapper membrane = ChatWrapper.localWrapper(pair.getPublic());
 		WebSocketClient ws = new WebSocketClient();
 		ws.start();
-		ws.connect(new WebSocketListener() {
+		// We manually create the upgrade request so we can send the token in the cookies.
+		ClientUpgradeRequest upgradeRequest = new ClientUpgradeRequest();
+		upgradeRequest.setCookies(Collections.singletonList(new HttpCookie("BT", token)));
+		Session session = ws.connect(new WebSocketListener() {
 			@Override
 			public void onWebSocketClose(int statusCode, String reason) {
 			}
@@ -68,41 +68,23 @@ public class ChatRestTest {
 					Assert.fail("Not expected in test");
 				}
 			}
-		}, new URI("ws://localhost:8080/chat/listen")).get();
+		}, new URI("ws://localhost:8080/chat"), upgradeRequest).get();
 		
-		HttpClient httpClient = new HttpClient();
-		httpClient.start();
-		String content = _sendRequest(httpClient, HttpMethod.POST, token, BASE_URL + "chat/send", "Testing1");
-		Assert.assertNotNull(content);
+		RemoteEndpoint remote = session.getRemote();
+		remote.sendString("Testing1");
 		barrier.await();
 		Assert.assertEquals(uuid + ": Testing1", messageReceivedRef[0]);
-		content = _sendRequest(httpClient, HttpMethod.POST, token, BASE_URL + "chat/send", "Testing2");
-		Assert.assertNotNull(content);
+		remote.sendString("Testing2");
 		barrier.await();
 		Assert.assertEquals(uuid + ": Testing2", messageReceivedRef[0]);
-		content = _sendRequest(httpClient, HttpMethod.POST, token, BASE_URL + "chat/send", "Testing3");
-		Assert.assertNotNull(content);
+		remote.sendString("Testing3");
 		barrier.await();
 		Assert.assertEquals(uuid + ": Testing3", messageReceivedRef[0]);
-		httpClient.stop();
+		session.close();
 		
 		ws.stop();
 		membrane.stop();
 	}
-
-	private String _sendRequest(HttpClient httpClient, HttpMethod method, String binaryToken, String url, String message) throws Throwable {
-		Request request = httpClient.newRequest(url)
-				.method(method)
-				.cookie(new HttpCookie("BT", binaryToken))
-		;
-		if (null != message) {
-			request.content(new StringContentProvider(message));
-		}
-		ContentResponse response = request.send();
-		Assert.assertEquals(200, response.getStatus());
-		return new String(response.getContent(), StandardCharsets.UTF_8);
-	}
-
 
 
 	private static class ChatWrapper {

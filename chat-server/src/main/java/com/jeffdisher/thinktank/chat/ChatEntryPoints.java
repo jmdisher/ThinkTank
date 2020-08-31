@@ -1,12 +1,11 @@
 package com.jeffdisher.thinktank.chat;
 
-import java.nio.charset.StandardCharsets;
+import java.net.HttpCookie;
 import java.security.PublicKey;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
@@ -14,7 +13,6 @@ import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketListener;
 
 import com.jeffdisher.breakwater.RestServer;
-import com.jeffdisher.breakwater.StringMultiMap;
 import com.jeffdisher.thinktank.crypto.BinaryToken;
 
 
@@ -25,18 +23,8 @@ import com.jeffdisher.thinktank.crypto.BinaryToken;
  */
 public class ChatEntryPoints {
 	public static void registerEntryPoints(RestServer server, IChatContainer chatContainer, PublicKey key) {
-		server.addPostHandler("/chat/send", 0, (HttpServletRequest request, HttpServletResponse response, String[] pathVariables, StringMultiMap<String> formVariables, StringMultiMap<byte[]> multiPart, byte[] rawPost) -> {
-			UUID uuid = _getUuidFromCookie(request, key);
-			if (null != uuid) {
-				String message = new String(rawPost, StandardCharsets.UTF_8);
-				chatContainer.post(uuid, message);
-				response.setStatus(HttpServletResponse.SC_OK);
-			} else {
-				response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-				response.getWriter().println("Required UUID");
-			}
-		});
-		server.addWebSocketFactory("/chat/listen", 0, true, false, (String[] variables) -> new WebSocketListener() {
+		server.addWebSocketFactory("/chat", 0, true, false, (String[] variables) -> new WebSocketListener() {
+			private UUID _user;
 			private RemoteEndpoint _session;
 			@Override
 			public void onWebSocketError(Throwable cause) {
@@ -50,17 +38,28 @@ public class ChatEntryPoints {
 			
 			@Override
 			public void onWebSocketConnect(Session session) {
-				_session = session.getRemote();
-				chatContainer.addConnection(_session);
+				UUID uuid = _getUuidFromCookie(session.getUpgradeRequest().getCookies(), key);
+				if (null != uuid) {
+					_user = uuid;
+					_session = session.getRemote();
+					chatContainer.addConnection(_session);
+				} else {
+					session.close(HttpServletResponse.SC_FORBIDDEN, "Missing BinaryToken");
+				}
 			}
 			
 			@Override
 			public void onWebSocketClose(int statusCode, String reason) {
-				chatContainer.removeConnection(_session);
+				if (null != _session) {
+					chatContainer.removeConnection(_session);
+				}
 			}
 			
 			@Override
 			public void onWebSocketText(String message) {
+				if (null != _user) {
+					chatContainer.post(_user, message);
+				}
 			}
 			
 			@Override
@@ -70,10 +69,9 @@ public class ChatEntryPoints {
 	}
 
 
-	private static UUID _getUuidFromCookie(HttpServletRequest request, PublicKey key) {
+	private static UUID _getUuidFromCookie(List<HttpCookie> cookies, PublicKey key) {
 		UUID value = null;
-		Cookie[] cookies = request.getCookies();
-		for (Cookie cookie : cookies) {
+		for (HttpCookie cookie : cookies) {
 			if ("BT".equals(cookie.getName())) {
 				String encoded = cookie.getValue();
 				value = BinaryToken.validateToken(key, System.currentTimeMillis(), encoded);
