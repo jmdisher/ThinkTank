@@ -6,8 +6,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
-import javax.servlet.http.HttpServletResponse;
-
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketListener;
@@ -22,6 +20,11 @@ import com.jeffdisher.thinktank.crypto.BinaryToken;
  * -WebSocket listen for "text" /chat/listen
  */
 public class ChatEntryPoints {
+	/**
+	 * Status codes [3000..4999] seem to be available for user-defined use.
+	 */
+	private static final int STATUS_AUTH = 3000;
+
 	public static void registerEntryPoints(RestServer server, IChatContainer chatContainer, PublicKey key) {
 		server.addWebSocketFactory("/chat", 0, true, false, (String[] variables) -> new WebSocketListener() {
 			private UUID _user;
@@ -44,7 +47,7 @@ public class ChatEntryPoints {
 					_session = session.getRemote();
 					chatContainer.addConnection(_session);
 				} else {
-					session.close(HttpServletResponse.SC_FORBIDDEN, "Missing BinaryToken");
+					session.close(STATUS_AUTH, "Missing BinaryToken");
 				}
 			}
 			

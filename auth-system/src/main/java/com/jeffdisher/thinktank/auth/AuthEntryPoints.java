@@ -22,6 +22,9 @@ import com.jeffdisher.thinktank.crypto.BinaryToken;
  * -POST /logout
  */
 public class AuthEntryPoints {
+	// 10 seconds (should be more like 10 minutes but this helps with testing).
+	private static final long TOKEN_LONGEVITY_MILLIS = 10 * 1000L;
+
 	public static void registerEntryPoints(RestServer server, PrivateKey key) {
 		// Install handlers for modifying login state.
 		server.addPostHandler("/login", 1, (HttpServletRequest request, HttpServletResponse response, String[] pathVariables, StringMultiMap<String> formVariables, StringMultiMap<byte[]> multiPart, byte[] rawPost) -> {
@@ -46,7 +49,7 @@ public class AuthEntryPoints {
 			HttpSession session = request.getSession(false);
 			if (null != session) {
 				UUID uuid = (UUID)session.getAttribute("uuid");
-				long expiryMillis = System.currentTimeMillis() + 10_000L;
+				long expiryMillis = System.currentTimeMillis() + TOKEN_LONGEVITY_MILLIS;
 				String binaryToken = BinaryToken.createToken(key, uuid, expiryMillis);
 				Cookie cookie = new Cookie("BT", binaryToken);
 				cookie.setDomain("localhost");
@@ -57,7 +60,7 @@ public class AuthEntryPoints {
 				response.setStatus(HttpServletResponse.SC_OK);
 				response.getWriter().println(uuid.toString());
 			} else {
-				response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+				response.setStatus(HttpServletResponse.SC_FORBIDDEN);
 				response.getWriter().println("Not logged in");
 			}
 		});

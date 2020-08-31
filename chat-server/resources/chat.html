@@ -58,11 +58,17 @@
 				WAITING_TO_SEND = null;
 			}
 			listener.onclose = function(event) {
-				// Clear the socket and re-open it after a cool-down period (5 seconds).
-				let cooldownMillis = 5000;
 				WEB_SOCKET = null;
 				WAITING_TO_SEND = [];
-				window.setTimeout(startWebSocket, cooldownMillis);
+				
+				// We use 3000 as the status code for missing auth.
+				if (3000 == event.code) {
+					refreshAuth(startWebSocket);
+				} else {
+					// Clear the socket and re-open it after a cool-down period (5 seconds).
+					let cooldownMillis = 5000;
+					window.setTimeout(startWebSocket, cooldownMillis);
+				}
 			}
 		}
 		
@@ -76,6 +82,18 @@
 		
 		function sendMessage(message) {
 			WEB_SOCKET.send(message);
+		}
+		
+		function refreshAuth(callback) {
+			fetch("/getid")
+				.then(response => {
+					if (403 == response.status) {
+						alert("ERROR IN AUTH: " + response.statusText);
+					} else {
+						callback();
+					}
+				})
+			;
 		}
 	</script>
 </html>
