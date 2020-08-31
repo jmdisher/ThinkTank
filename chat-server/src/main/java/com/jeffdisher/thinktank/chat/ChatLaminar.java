@@ -87,8 +87,8 @@ public class ChatLaminar implements IChatWriter {
 		}
 		@Override
 		public void put(UUID key, String value, long intentionOffset, long consequenceOffset) {
-			String message = key + ": " + value;
-			_chatStore.newMessageArrived(message);
+			// We will send in the consequenceOffset since it is the dense and non-duplicated value.
+			_chatStore.newMessageArrived(key, value, consequenceOffset);
 		}
 		@Override
 		public void create(long intentionOffset, long consequenceOffset) {

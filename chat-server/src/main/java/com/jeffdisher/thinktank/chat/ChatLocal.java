@@ -21,7 +21,7 @@ public class ChatLocal implements IChatWriter {
 	private static final StringCodec VALUE_CODEC = new StringCodec();
 
 	private final ChatStore _chatStore;
-	private final Queue<String> _messages;
+	private final Queue<MessageTuple> _messages;
 	private final Thread _background;
 	private boolean _keepRunning;
 
@@ -29,9 +29,11 @@ public class ChatLocal implements IChatWriter {
 		_chatStore = chatStore;
 		_messages = new LinkedList<>();
 		_background = new Thread(() -> {
-			String message = _waitNextMessage();
+			long nextIndex = 1L;
+			MessageTuple message = _waitNextMessage();
 			while (null != message) {
-				_chatStore.newMessageArrived(message);
+				_chatStore.newMessageArrived(message.sender, message.content, nextIndex);
+				nextIndex += 1L;
 				message = _waitNextMessage();
 			}
 		});
@@ -58,12 +60,12 @@ public class ChatLocal implements IChatWriter {
 		// Fake serialization, to verify the codecs work as expected.
 		UUID key = KEY_CODEC.deserialize(KEY_CODEC.serialize(uuid));
 		String value = VALUE_CODEC.deserialize(VALUE_CODEC.serialize(message));
-		_messages.add(key + ": " + value);
+		_messages.add(new MessageTuple(key, value));
 		this.notify();
 	}
 
 
-	private synchronized String _waitNextMessage() {
+	private synchronized MessageTuple _waitNextMessage() {
 		while (_keepRunning && _messages.isEmpty()) {
 			try {
 				this.wait();
@@ -75,5 +77,16 @@ public class ChatLocal implements IChatWriter {
 		return _keepRunning
 				? _messages.remove()
 				: null;
+	}
+
+
+	private static class MessageTuple {
+		public final UUID sender;
+		public final String content;
+		
+		public MessageTuple(UUID sender, String content) {
+			this.sender = sender;
+			this.content = content;
+		}
 	}
 }

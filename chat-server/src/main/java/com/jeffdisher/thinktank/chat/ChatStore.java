@@ -3,6 +3,7 @@ package com.jeffdisher.thinktank.chat;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 
@@ -16,7 +17,16 @@ public class ChatStore {
 	private final Set<RemoteEndpoint> _connections = new HashSet<>();
 
 
-	public synchronized void newMessageArrived(String message) {
+	/**
+	 * Tells the store that a new message has arrived which should be relayed to the connected users.
+	 * 
+	 * @param sender The sender of the message.
+	 * @param content The message content.
+	 * @param index The 1-indexed representation of the order this message arrived (after any message with a lower
+	 * index).
+	 */
+	public synchronized void newMessageArrived(UUID sender, String content, long index) {
+		String message = sender + ": " + content;
 		for (RemoteEndpoint endpoint : _connections) {
 			try {
 				endpoint.sendString(message);
@@ -38,5 +48,4 @@ public class ChatStore {
 		boolean didRemove = _connections.remove(session);
 		Assert.assertTrue(didRemove);
 	}
-
 }
