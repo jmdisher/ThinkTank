@@ -23,6 +23,8 @@ import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.eclipsesource.json.Json;
+import com.eclipsesource.json.JsonObject;
 import com.jeffdisher.thinktank.crypto.BinaryToken;
 import com.jeffdisher.thinktank.crypto.CryptoHelpers;
 
@@ -71,15 +73,25 @@ public class ChatRestTest {
 		}, new URI("ws://localhost:8080/chat"), upgradeRequest).get();
 		
 		RemoteEndpoint remote = session.getRemote();
+		
 		remote.sendString("Testing1");
 		barrier.await();
-		Assert.assertEquals(uuid + ": Testing1", messageReceivedRef[0]);
+		JsonObject object = Json.parse(messageReceivedRef[0]).asObject();
+		Assert.assertEquals(uuid.toString(), object.getString("sender", null));
+		Assert.assertEquals("Testing1", object.getString("content", null));
+		
 		remote.sendString("Testing2");
 		barrier.await();
-		Assert.assertEquals(uuid + ": Testing2", messageReceivedRef[0]);
+		object = Json.parse(messageReceivedRef[0]).asObject();
+		Assert.assertEquals(uuid.toString(), object.getString("sender", null));
+		Assert.assertEquals("Testing2", object.getString("content", null));
+		
 		remote.sendString("Testing3");
 		barrier.await();
-		Assert.assertEquals(uuid + ": Testing3", messageReceivedRef[0]);
+		object = Json.parse(messageReceivedRef[0]).asObject();
+		Assert.assertEquals(uuid.toString(), object.getString("sender", null));
+		Assert.assertEquals("Testing3", object.getString("content", null));
+		
 		session.close();
 		
 		ws.stop();

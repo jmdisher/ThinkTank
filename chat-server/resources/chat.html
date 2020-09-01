@@ -47,7 +47,8 @@
 			let listener = new WebSocket("ws://localhost:8080/chat", ["text"]);
 			listener.onmessage = function(event) {
 				let post = Likeness.OBSERVABLE_GENERATOR_MAP["string"]();
-				post.setValue(event.data);
+				let json = JSON.parse(event.data);
+				post.setValue(json.sender + ": " + json.content);
 				topData.getValue("Chat Room").addElement(post);
 			}
 			listener.onopen = function(event) {

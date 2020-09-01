@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 
+import com.eclipsesource.json.JsonObject;
 import com.jeffdisher.laminar.utils.Assert;
 
 
@@ -26,7 +27,7 @@ public class ChatStore {
 	 * index).
 	 */
 	public synchronized void newMessageArrived(UUID sender, String content, long index) {
-		String message = sender + ": " + content;
+		String message = _messageAsJson(sender, content, index);
 		for (RemoteEndpoint endpoint : _connections) {
 			try {
 				endpoint.sendString(message);
@@ -47,5 +48,14 @@ public class ChatStore {
 		Assert.assertTrue(null != session);
 		boolean didRemove = _connections.remove(session);
 		Assert.assertTrue(didRemove);
+	}
+
+
+	private static String _messageAsJson(UUID sender, String content, long index) {
+		JsonObject object = new JsonObject();
+		object.add("sender", sender.toString());
+		object.add("content", content);
+		object.add("index", index);
+		return object.toString();
 	}
 }
