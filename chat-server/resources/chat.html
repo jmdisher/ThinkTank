@@ -38,9 +38,6 @@
 		let container = document.getElementById("container");
 		cloneTemplate("tuple", container, "Chat room", topData);
 		
-		// Kick-off the WebSocket.
-		startWebSocket();
-		
 		// The WEB_SOCKET is the open connection but we store a reference to it in READY_WEB_SOCKET once we receive our
 		//  first message from the server (otherwise we may send the message before the server rejects auth).
 		// Later on, this mechanism will likely be replaced with one which waits to see the result come back from the
@@ -50,9 +47,14 @@
 		var READY_WEB_SOCKET = null;
 		// WAITING_TO_SEND stores a list of messages ready to be sent to the server when READY_WEB_SOCKET opens.
 		var WAITING_TO_SEND = [];
+		// The index of the last message we received.
+		var LAST_INDEX = 0;
+		
+		// Kick-off the WebSocket.
+		startWebSocket();
 		
 		function startWebSocket() {
-			let listener = new WebSocket("ws://localhost:8080/chat", ["text"]);
+			let listener = new WebSocket("ws://localhost:8080/chat/" + LAST_INDEX, ["text"]);
 			listener.onmessage = function(event) {
 				if (null == READY_WEB_SOCKET) {
 					// The first message.
@@ -66,6 +68,7 @@
 					let json = JSON.parse(event.data);
 					post.setValue(json.sender + ": " + json.content);
 					topData.getValue("Chat Room").addElement(post);
+					LAST_INDEX = json.index;
 				}
 			}
 			listener.onopen = function(event) {

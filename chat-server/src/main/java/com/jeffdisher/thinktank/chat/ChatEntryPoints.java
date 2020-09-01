@@ -26,9 +26,10 @@ public class ChatEntryPoints {
 	 */
 	private static final int STATUS_MISSING_AUTH = 3000;
 	private static final int STATUS_STALE_AUTH = 3001;
+	private static final int STATUS_INVALID_ARGUMENTS = 3002;
 
 	public static void registerEntryPoints(RestServer server, ChatStore chatStore, IChatWriter chatWriter, PublicKey key) {
-		server.addWebSocketFactory("/chat", 0, true, false, (String[] variables) -> new WebSocketListener() {
+		server.addWebSocketFactory("/chat", 1, true, false, (String[] variables) -> new WebSocketListener() {
 			private UUID _user;
 			private RemoteEndpoint _session;
 			@Override
@@ -43,27 +44,32 @@ public class ChatEntryPoints {
 			
 			@Override
 			public void onWebSocketConnect(Session session) {
-				String binaryToken = _getBinaryTokenCookie(session.getUpgradeRequest().getCookies());
-				if (null != binaryToken) {
-					UUID uuid = BinaryToken.validateToken(key, System.currentTimeMillis(), binaryToken);
-					if (null != uuid) {
-						_user = uuid;
-						_session = session.getRemote();
-						
-						// We will send an initial message just so the client side knows the auth was accepted so it can start using the socket.
-						try {
-							_session.sendString("READY");
-						} catch (IOException e) {
-							// We will just end up closing this but we should see what this error is, for future analysis.
-							e.printStackTrace();
+				long previousConsequence = _readLongVariable(variables[0]);
+				if (previousConsequence >= 0L) {
+					String binaryToken = _getBinaryTokenCookie(session.getUpgradeRequest().getCookies());
+					if (null != binaryToken) {
+						UUID uuid = BinaryToken.validateToken(key, System.currentTimeMillis(), binaryToken);
+						if (null != uuid) {
+							_user = uuid;
+							_session = session.getRemote();
+							
+							// We will send an initial message just so the client side knows the auth was accepted so it can start using the socket.
+							try {
+								_session.sendString("READY");
+							} catch (IOException e) {
+								// We will just end up closing this but we should see what this error is, for future analysis.
+								e.printStackTrace();
+							}
+							
+							chatStore.addConnectionAndSendBacklog(_session, previousConsequence);
+						} else {
+							session.close(STATUS_STALE_AUTH, "Stale/invalid BinaryToken");
 						}
-						
-						chatStore.addConnectionAndSendBacklog(_session, 0L);
 					} else {
-						session.close(STATUS_STALE_AUTH, "Stale/invalid BinaryToken");
+						session.close(STATUS_MISSING_AUTH, "Missing BinaryToken");
 					}
 				} else {
-					session.close(STATUS_MISSING_AUTH, "Missing BinaryToken");
+					session.close(STATUS_INVALID_ARGUMENTS, "Invalid arguments");
 				}
 			}
 			
@@ -83,6 +89,16 @@ public class ChatEntryPoints {
 			
 			@Override
 			public void onWebSocketBinary(byte[] payload, int offset, int len) {
+			}
+			
+			private long _readLongVariable(String variable) {
+				long previousConsequence;
+				try {
+					previousConsequence = Long.parseLong(variable);
+				} catch (NumberFormatException e) {
+					previousConsequence = -1L;
+				}
+				return previousConsequence;
 			}
 		});
 	}
