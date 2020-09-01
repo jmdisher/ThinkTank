@@ -1,5 +1,6 @@
 package com.jeffdisher.thinktank.chat;
 
+import java.io.IOException;
 import java.net.HttpCookie;
 import java.security.PublicKey;
 import java.util.List;
@@ -23,7 +24,8 @@ public class ChatEntryPoints {
 	/**
 	 * Status codes [3000..4999] seem to be available for user-defined use.
 	 */
-	private static final int STATUS_AUTH = 3000;
+	private static final int STATUS_MISSING_AUTH = 3000;
+	private static final int STATUS_STALE_AUTH = 3001;
 
 	public static void registerEntryPoints(RestServer server, ChatStore chatStore, IChatWriter chatWriter, PublicKey key) {
 		server.addWebSocketFactory("/chat", 0, true, false, (String[] variables) -> new WebSocketListener() {
@@ -41,13 +43,26 @@ public class ChatEntryPoints {
 			
 			@Override
 			public void onWebSocketConnect(Session session) {
-				UUID uuid = _getUuidFromCookie(session.getUpgradeRequest().getCookies(), key);
-				if (null != uuid) {
-					_user = uuid;
-					_session = session.getRemote();
-					chatStore.addConnection(_session);
+				String binaryToken = _getBinaryTokenCookie(session.getUpgradeRequest().getCookies());
+				if (null != binaryToken) {
+					UUID uuid = BinaryToken.validateToken(key, System.currentTimeMillis(), binaryToken);
+					if (null != uuid) {
+						_user = uuid;
+						_session = session.getRemote();
+						chatStore.addConnection(_session);
+						
+						// We will send an initial message just so the client side knows the auth was accepted so it can start using the socket.
+						try {
+							_session.sendString("READY");
+						} catch (IOException e) {
+							// We will just end up closing this but we should see what this error is, for future analysis.
+							e.printStackTrace();
+						}
+					} else {
+						session.close(STATUS_STALE_AUTH, "Stale/invalid BinaryToken");
+					}
 				} else {
-					session.close(STATUS_AUTH, "Missing BinaryToken");
+					session.close(STATUS_MISSING_AUTH, "Missing BinaryToken");
 				}
 			}
 			
@@ -72,12 +87,11 @@ public class ChatEntryPoints {
 	}
 
 
-	private static UUID _getUuidFromCookie(List<HttpCookie> cookies, PublicKey key) {
-		UUID value = null;
+	private static String _getBinaryTokenCookie(List<HttpCookie> cookies) {
+		String value = null;
 		for (HttpCookie cookie : cookies) {
 			if ("BT".equals(cookie.getName())) {
-				String encoded = cookie.getValue();
-				value = BinaryToken.validateToken(key, System.currentTimeMillis(), encoded);
+				value = cookie.getValue();
 				break;
 			}
 		}

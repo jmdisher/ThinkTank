@@ -17,6 +17,10 @@
 		</div>
 	</body>
 	<script>
+		// Our user-defined WebSocket constants defined in ChatEntryPoints.java.
+		const STATUS_MISSING_AUTH = 3000;
+		const STATUS_STALE_AUTH = 3001;
+		
 		// Define the UI templates for types.
 		createStringFieldTemplate("string");
 		createArrayTemplate("chat", "string");
@@ -25,10 +29,6 @@
 			new Map([["Post", function(map) {
 				enqueueOrSend(map.getValue("Post").getValue());
 				map.getValue("Post").setValue("");
-			}], ["Auth", function(map) {
-				fetch("/getid")
-					.then(response => response.text())
-				;
 			}]])
 		);
 		
@@ -41,29 +41,47 @@
 		// Kick-off the WebSocket.
 		startWebSocket();
 		
+		// The WEB_SOCKET is the open connection but we store a reference to it in READY_WEB_SOCKET once we receive our
+		//  first message from the server (otherwise we may send the message before the server rejects auth).
+		// Later on, this mechanism will likely be replaced with one which waits to see the result come back from the
+		//  server, since that will cover this auth case but also other dropped message cases.
 		var WEB_SOCKET = null;
+		// READY_WEB_SOCKET is set non-null once WEB_SOCKET has been authenticated and is ready to use.
+		var READY_WEB_SOCKET = null;
+		// WAITING_TO_SEND stores a list of messages ready to be sent to the server when READY_WEB_SOCKET opens.
 		var WAITING_TO_SEND = [];
+		
 		function startWebSocket() {
 			let listener = new WebSocket("ws://localhost:8080/chat", ["text"]);
 			listener.onmessage = function(event) {
-				let post = Likeness.OBSERVABLE_GENERATOR_MAP["string"]();
-				let json = JSON.parse(event.data);
-				post.setValue(json.sender + ": " + json.content);
-				topData.getValue("Chat Room").addElement(post);
+				if (null == READY_WEB_SOCKET) {
+					// The first message.
+					READY_WEB_SOCKET = WEB_SOCKET;
+					WAITING_TO_SEND.forEach(function(elt, index, array) {
+						sendMessage(elt);
+					});
+					WAITING_TO_SEND = null;
+				} else {
+					let post = Likeness.OBSERVABLE_GENERATOR_MAP["string"]();
+					let json = JSON.parse(event.data);
+					post.setValue(json.sender + ": " + json.content);
+					topData.getValue("Chat Room").addElement(post);
+				}
 			}
 			listener.onopen = function(event) {
 				WEB_SOCKET = listener;
-				WAITING_TO_SEND.forEach(function(elt, index, array) {
-					sendMessage(elt);
-				});
-				WAITING_TO_SEND = null;
 			}
 			listener.onclose = function(event) {
 				WEB_SOCKET = null;
-				WAITING_TO_SEND = [];
+				READY_WEB_SOCKET = null;
 				
-				// We use 3000 as the status code for missing auth.
-				if (3000 == event.code) {
+				// We may still have pending messages we couldn't send.
+				if (null == WAITING_TO_SEND) {
+					WAITING_TO_SEND = [];
+				}
+				
+				// We use 3000 as the status code for missing auth and 3001 for stale auth.
+				if ((STATUS_MISSING_AUTH == event.code) || (STATUS_STALE_AUTH == event.code)) {
 					refreshAuth(startWebSocket);
 				} else {
 					// Clear the socket and re-open it after a cool-down period (5 seconds).
@@ -74,7 +92,8 @@
 		}
 		
 		function enqueueOrSend(message) {
-			if (null != WEB_SOCKET) {
+			// If the connection is not ready, just queue this up for when it becomes ready.
+			if (null != READY_WEB_SOCKET) {
 				sendMessage(message);
 			} else {
 				WAITING_TO_SEND.push(message);
@@ -82,7 +101,7 @@
 		}
 		
 		function sendMessage(message) {
-			WEB_SOCKET.send(message);
+			READY_WEB_SOCKET.send(message);
 		}
 		
 		function refreshAuth(callback) {

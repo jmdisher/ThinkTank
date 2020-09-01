@@ -74,6 +74,10 @@ public class ChatRestTest {
 		
 		RemoteEndpoint remote = session.getRemote();
 		
+		// Wait for auth string to come back.
+		barrier.await();
+		Assert.assertEquals("READY", messageReceivedRef[0]);
+		
 		remote.sendString("Testing1");
 		barrier.await();
 		JsonObject object = Json.parse(messageReceivedRef[0]).asObject();
