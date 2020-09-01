@@ -49,7 +49,6 @@ public class ChatEntryPoints {
 					if (null != uuid) {
 						_user = uuid;
 						_session = session.getRemote();
-						chatStore.addConnection(_session);
 						
 						// We will send an initial message just so the client side knows the auth was accepted so it can start using the socket.
 						try {
@@ -58,6 +57,8 @@ public class ChatEntryPoints {
 							// We will just end up closing this but we should see what this error is, for future analysis.
 							e.printStackTrace();
 						}
+						
+						chatStore.addConnectionAndSendBacklog(_session, 0L);
 					} else {
 						session.close(STATUS_STALE_AUTH, "Stale/invalid BinaryToken");
 					}

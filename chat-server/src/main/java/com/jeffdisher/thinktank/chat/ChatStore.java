@@ -2,6 +2,8 @@ package com.jeffdisher.thinktank.chat;
 
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 
@@ -15,7 +17,9 @@ import com.jeffdisher.laminar.utils.Assert;
  * Data structure which represents what the server knows about the state of the chatroom and all the connected users.
  */
 public class ChatStore {
+	private static final int CACHE_SIZE = 10;
 	private final Set<RemoteEndpoint> _connections = new HashSet<>();
+	private final Queue<MessageTuple> _cache = new LinkedList<>();
 
 
 	/**
@@ -27,7 +31,12 @@ public class ChatStore {
 	 * index).
 	 */
 	public synchronized void newMessageArrived(UUID sender, String content, long index) {
-		String message = _messageAsJson(sender, content, index);
+		MessageTuple tuple = new MessageTuple(sender, content, index);
+		_cache.add(tuple);
+		if (_cache.size() > CACHE_SIZE) {
+			_cache.remove();
+		}
+		String message = tuple.toJson();
 		for (RemoteEndpoint endpoint : _connections) {
 			try {
 				endpoint.sendString(message);
@@ -38,10 +47,22 @@ public class ChatStore {
 		}
 	}
 
-	public synchronized void addConnection(RemoteEndpoint session) {
+	public synchronized void addConnectionAndSendBacklog(RemoteEndpoint session, long previousIndex) {
 		Assert.assertTrue(null != session);
 		boolean didAdd = _connections.add(session);
 		Assert.assertTrue(didAdd);
+		
+		// Send off anything in the cache which is after this index.
+		try {
+			for (MessageTuple tuple : _cache) {
+				if (tuple.index > previousIndex) {
+					session.sendString(tuple.toJson());
+				}
+			}
+		} catch (IOException e) {
+			// This is fatal since we don't have handling for it.
+			throw Assert.unimplemented(e.getLocalizedMessage());
+		}
 	}
 
 	public synchronized void removeConnection(RemoteEndpoint session) {
@@ -51,11 +72,23 @@ public class ChatStore {
 	}
 
 
-	private static String _messageAsJson(UUID sender, String content, long index) {
-		JsonObject object = new JsonObject();
-		object.add("sender", sender.toString());
-		object.add("content", content);
-		object.add("index", index);
-		return object.toString();
+	private static class MessageTuple {
+		public final UUID sender;
+		public final String content;
+		public final long index;
+		
+		public MessageTuple(UUID sender, String content, long index) {
+			this.sender = sender;
+			this.content = content;
+			this.index = index;
+		}
+		
+		public String toJson() {
+			JsonObject object = new JsonObject();
+			object.add("sender", this.sender.toString());
+			object.add("content", this.content);
+			object.add("index", this.index);
+			return object.toString();
+		}
 	}
 }
